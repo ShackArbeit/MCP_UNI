@@ -1,0 +1,43 @@
+# 學分門檻規則：數字判斷一律交給 core/rules.py 計算，不讓 LLM 自己比大小。
+# 新增規則時，threshold 必須能在 source 所指的條文中找到；人工核對原文後才能設 verified: true。
+# operator 可用：>=、<=、>、<、==
+
+- rule_id: semester_min_credits_y1_3
+  description: 學士班第一至三學年每學期最低修習學分
+  operator: ">="
+  threshold: 16
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: semester_max_credits
+  description: 學士班每學期修課學分上限（一般學生；法律系 25 學分、輔系生加修 4 學分、雙主修或前學期平均 80 分以上加修 6 學分等例外不適用本規則）
+  operator: "<="
+  threshold: 22
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: semester_max_credits_military
+  description: 專案役男每學期最高修習學分（專案役男擬超修者不在此限）
+  operator: "<="
+  threshold: 25
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: semester_min_credits_y4
+  description: 學士班第四學年每學期最低修習學分
+  operator: ">="
+  threshold: 8
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: military_training_max_credits
+  description: 在校修業期間軍訓至多採計學分
+  operator: "<="
+  threshold: 2
+  unit: 學分
+  source: 選課辦法 第十條
+  verified: true
