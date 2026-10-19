@@ -25,7 +25,8 @@ def test_below_minimum_fails():
     r = check_credit_rule("semester_min_credits_y1_3", 14)
     assert r["passed"] is False
     assert r["explanation"].startswith("你填的 14 學分低於最低 16 學分的規定")
-    assert r["source"] == "專案服役彈性修業辦法 第四點"
+    # 一般學生的下限出自選課辦法第三條，不是專案服役辦法
+    assert r["source"] == "選課辦法 第三條"
 
 
 def test_minimum_boundary_passes():
@@ -60,6 +61,10 @@ def test_unknown_rule_lists_available_ids():
                     "semester_max_credits_military",
                     "semester_min_credits_y4", "military_training_max_credits"):
         assert rule_id in str(e.value)
+
+
+def test_min_credits_y4_source():
+    assert check_credit_rule("semester_min_credits_y4", 8)["source"] == "選課辦法 第三條"
 
 
 def test_result_fields():

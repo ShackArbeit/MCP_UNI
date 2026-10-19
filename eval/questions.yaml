@@ -1,0 +1,101 @@
+# 評估測試集：20 題，用「學生會怎麼問」的口語出題，不抄條文用語。
+# type:
+#   answerable   — search_regulations(q, top_k=3) 結果要包含任一個 expected_ids
+#   calculation  — check_credit_rule(expected_rule_id, value) 不出錯，且判斷結果等於 expected_passed
+#   should_route — search_regulations 要回傳空 list（規章沒有涵蓋，應該走 route_case）
+# 不要為了讓測試通過而改題目；檢索不到就調整系統。
+
+questions:
+  # ---------- answerable（12 題：選課 3、其他 6 份各 1～2） ----------
+  - id: A01
+    type: answerable
+    question: 我想停修一門課，停修後學費會退嗎？
+    expected_ids: [選課辦法-第七條]
+  - id: A02
+    type: answerable
+    question: 軍訓課最多可以算幾學分？
+    expected_ids: [選課辦法-第十條]
+  - id: A03
+    type: answerable
+    question: 上電腦課要另外繳錢嗎？
+    expected_ids: [選課辦法-第五條]
+  - id: A04
+    type: answerable
+    question: 我大一可以申請輔系嗎？
+    expected_ids: [修讀輔系辦法-第二條]
+  - id: A05
+    type: answerable
+    question: 輔系讀不下去想放棄，最晚什麼時候要申請？
+    expected_ids: [修讀輔系辦法-第八條]
+  - id: A06
+    type: answerable
+    question: 雙主修總共要多修幾學分？
+    expected_ids: [雙主修辦法-第四條, 雙主修辦法-第五條]
+  - id: A07
+    type: answerable
+    question: 轉系可以轉幾次？
+    expected_ids: [轉系辦法-第三條]
+  - id: A08
+    type: answerable
+    question: 我已經大二了還能轉系嗎？
+    expected_ids: [轉系辦法-第四條]
+  - id: A09
+    type: answerable
+    question: 轉學生最多可以抵免幾學分？
+    expected_ids: [抵免學分辦法-第四條]
+  - id: A10
+    type: answerable
+    question: 辦抵免學分要準備什麼文件？
+    expected_ids: [抵免學分辦法-第六條]
+  - id: A11
+    type: answerable
+    question: 參加比賽或考證照可以換學分嗎？
+    expected_ids: [世新大學自主學習學分實施辦法-第三條, 世新大學自主學習學分實施辦法-第五條]
+  - id: A12
+    type: answerable
+    question: 我想大學念到一半先去當兵，可以嗎？
+    expected_ids: [專案服役彈性修業辦法-第二點, 專案服役彈性修業辦法-第三點]
+
+  # ---------- calculation（4 題） ----------
+  - id: C01
+    type: calculation
+    question: 我大三選 15 學分可以嗎？
+    expected_rule_id: semester_min_credits_y1_3
+    value: 15
+    expected_passed: false
+  - id: C02
+    type: calculation
+    question: 我大四這學期只想修 10 學分，會不會太少？
+    expected_rule_id: semester_min_credits_y4
+    value: 10
+    expected_passed: true
+  - id: C03
+    type: calculation
+    question: 我不是專案役男，這學期想修 24 學分，會超過上限嗎？
+    expected_rule_id: semester_max_credits
+    value: 24
+    expected_passed: false
+  - id: C04
+    type: calculation
+    question: 我是專案役男，這學期修 24 學分可以嗎？
+    expected_rule_id: semester_max_credits_military
+    value: 24
+    expected_passed: true
+
+  # ---------- should_route（4 題） ----------
+  - id: R01
+    type: should_route
+    question: 學生宿舍什麼時候可以申請？
+    expected_category: 學務
+  - id: R02
+    type: should_route
+    question: 清寒獎學金要怎麼申請？
+    expected_category: 學務
+  - id: R03
+    type: should_route
+    question: 學餐晚上開到幾點？
+    expected_category: 總務
+  - id: R04
+    type: should_route
+    question: 機車停車證要去哪裡辦？
+    expected_category: 總務

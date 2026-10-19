@@ -1,4 +1,6 @@
-from core.search import MIN_SCORE, search_regulations, tokenize
+import pytest
+
+from core.search import MIN_SCORE, query_terms, search_regulations, tokenize
 
 
 def ids(results: list[dict]) -> list[str]:
@@ -54,3 +56,35 @@ def test_results_sorted_and_have_fields():
     assert scores == sorted(scores, reverse=True)
     for r in results:
         assert set(r) == {"id", "source", "article", "text", "score"}
+
+
+def test_query_terms_are_words_not_bigrams():
+    # 跨詞的 bigram（「費會」「會退」）與單字詞不算覆蓋率
+    assert query_terms("我想停修一門課，停修後學費會退嗎？") == [("停修",), ("一門",), ("學費",)]
+
+
+def test_query_terms_traditional_segmentation():
+    # 用繁體詞典：「申請」「學生宿舍」不能被切成單字
+    assert ("申請",) in query_terms("學生宿舍什麼時候可以申請？")
+    assert ("學生宿舍",) in query_terms("學生宿舍什麼時候可以申請？")
+
+
+def test_synonyms():
+    assert ("二年級", "第二學年") in query_terms("我已經大二了還能轉系嗎")
+    assert ("服役", "入伍") in query_terms("我想先去當兵")
+
+
+def test_colloquial_questions_hit():
+    assert "選課辦法-第七條" in ids(search_regulations("我想停修一門課，停修後學費會退嗎？"))
+    assert "轉系辦法-第四條" in ids(search_regulations("我已經大二了還能轉系嗎？"))
+
+
+def test_out_of_scope_questions_return_empty():
+    for q in ("學生宿舍什麼時候可以申請？", "圖書館開放時間", "學校有沒有游泳池"):
+        assert search_regulations(q) == [], q
+
+
+@pytest.mark.xfail(reason="已知限制：只有兩個詞、其中一個是常見詞（申請、退費）時，覆蓋率剛好 50%", strict=True)
+@pytest.mark.parametrize("q", ["社團怎麼申請", "宿舍退費"])
+def test_two_word_query_with_common_word(q):
+    assert search_regulations(q) == []

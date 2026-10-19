@@ -3,11 +3,11 @@
 # operator 可用：>=、<=、>、<、==
 
 - rule_id: semester_min_credits_y1_3
-  description: 學士班第一至三學年每學期最低修習學分
+  description: 學士班第一至三學年每學期最低修習學分（一般學生；低於規定者應令休學）
   operator: ">="
   threshold: 16
   unit: 學分
-  source: 專案服役彈性修業辦法 第四點
+  source: 選課辦法 第三條
   verified: true
 
 - rule_id: semester_max_credits
@@ -27,11 +27,11 @@
   verified: true
 
 - rule_id: semester_min_credits_y4
-  description: 學士班第四學年每學期最低修習學分
+  description: 學士班第四學年每學期最低修習學分（一般學生；低於規定者應令休學）
   operator: ">="
   threshold: 8
   unit: 學分
-  source: 專案服役彈性修業辦法 第四點
+  source: 選課辦法 第三條
   verified: true
 
 - rule_id: military_training_max_credits
