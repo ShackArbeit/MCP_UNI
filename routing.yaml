@@ -1,19 +1,184 @@
-# 案件分流：類別 → 承辦單位。route_case 收到不在清單中的類別時，一律歸到「綜合服務」。
-# 「專案服役」相關問題歸教務：專案服役彈性修業辦法第三點寫明向教務處註冊課務組提出申請。
+# 案件分流：類別 → 承辦單位與業務窗口。
+#
+# 資料來源：世新大學「業務聯絡窗口」 https://oaa.web.shu.edu.tw/wd-shu
+#           世新大學「聯絡方式」     https://www.shu.edu.tw/SHU-Contact.aspx
+# 擷取日期：2026-10-20。人員與分機可能異動，demo 前請再核對一次。
+#
+# 結構：
+#   categories.<類別>.unit / scope / contact：類別層級的預設承辦單位（沒有對到窗口時使用）
+#   categories.<類別>.windows：業務窗口清單。route_case 依序比對 keywords，摘要含任一關鍵字
+#     就分到該窗口；排在前面的優先（例如「冷氣卡」要排在「冷氣」前面）。
+#   route_case 收到不在清單中的類別時，一律歸到「綜合服務」。
+#
+# 「專案服役」歸教務：專案服役彈性修業辦法第三點寫明向教務處註冊課務組提出申請
+# （業務聯絡窗口頁面沒有列這一項）。「兵役」（緩徵、役期折抵）則是學務處生輔組。
+
+school:
+  name: 世新大學
+  switchboard: (02)2236-8225
+  address: 116 台北市文山區木柵路一段 17 巷 1 號
+  emergency: 軍訓室 24 小時校安專線 (02)2236-7935、免付費 0800-022-566
+  online_qa: https://ap.shu.edu.tw/SSO/QA.html
+
 categories:
   教務:
-    unit: 教務處註冊課務組
-    scope: 選課、加退選、停修、抵免、轉系、輔系、雙主修、學籍、專案服役
-    contact: TODO（待補分機與信箱）
+    unit: 教務處
+    scope: 選課、加退選、停修、超減修、校際選課、註冊、學籍、休復學、退學、延長修業、轉系、輔系、雙主修、專案服役、成績與證明、畢業資格、學分抵免、自主學習、研究生學位考試、招生
+    contact: 總機 (02)2236-8225 轉 82044；Email sdd@mail.shu.edu.tw；個人學籍、選課、成績問題可用線上諮詢表單 https://ap.shu.edu.tw/SSO/QA.html
+    windows:
+      - name: 專案服役
+        keywords: [專案服役, 專案役男, 提前入伍]
+        unit: 教務處註冊課務組
+        contact: 總機 (02)2236-8225 轉 82044；Email sdd@mail.shu.edu.tw（依專案服役彈性修業辦法第三點，申請前須先與系所討論彈性修課規劃）
+      - name: 課程與選課
+        keywords: [選課, 加選, 退選, 停修, 超修, 減修, 擋修, 校際選課, 衝堂, 教室]
+        unit: 教務處課務窗口
+        contact: Email curr001@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 學分抵免與跨域學習
+        keywords: [抵免, 免修, 學分學程, 微學程, 自主學習, 境外研修, 採認]
+        unit: 教務處課務窗口
+        contact: Email curr002@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 學籍與註冊
+        keywords: [註冊, 學籍, 休學, 復學, 退學, 延長修業, 轉系, 輔系, 雙主修]
+        unit: 教務處學籍窗口
+        contact: Email regist001@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 成績與證明
+        keywords: [成績, 在學證明, 成績單]
+        unit: 教務處學籍／成績窗口
+        contact: Email regist002@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 畢業資格
+        keywords: [畢業學分, 畢業門檻, 畢業資格, 必選修, 通識]
+        unit: 教務處畢業資格窗口
+        contact: Email regist003@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 研究生與學位考試
+        keywords: [研究生, 學位考試, 口試, 離校]
+        unit: 教務處研究生業務窗口
+        contact: Email regist003@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+      - name: 招生及新生
+        keywords: [招生, 簡章, 報名, 錄取, 報到, 入學資格]
+        unit: 教務處招生窗口
+        contact: Email aaad@mail.shu.edu.tw；總機 (02)2236-8225 轉 82044
+
   學務:
     unit: 學生事務處
-    scope: 獎助學金、宿舍、社團、請假
-    contact: TODO
+    scope: 獎助學金、就學貸款、學雜費減免、兵役、請假、社團、職涯輔導、諮商、原住民服務、衛保與保險、宿舍、學生申訴與霸凌、失物招領
+    contact: 總機 (02)2236-8225；生輔組 分機 82080，Email life@mail.shu.edu.tw
+    windows:
+      - name: 宿舍服務
+        keywords: [宿舍, 住宿, 床位, 門禁卡]
+        unit: 學務處宿管中心
+        contact: 分機 82076、31107；Email dorm@mail.shu.edu.tw
+      - name: 獎助學金
+        keywords: [獎學金, 助學金, 獎助]
+        unit: 學務處生輔組
+        contact: 分機 82080；Email life@mail.shu.edu.tw
+      - name: 助學措施
+        keywords: [就學貸款, 學貸, 學雜費減免, 減免, 分期繳款, 急難救助]
+        unit: 學務處生輔組
+        contact: 分機 82080；Email life@mail.shu.edu.tw
+      - name: 學生兵役
+        keywords: [兵役, 緩徵, 役期折抵, 兵役體檢, 抽籤, 儘後召集, 役男出境]
+        unit: 學務處生輔組
+        contact: 分機 82080；Email houct@mail.shu.edu.tw
+      - name: 學生請假
+        keywords: [請假, 公假, 病假, 事假, 喪假]
+        unit: 學務處生輔組
+        contact: 分機 82080；Email chiachi@mail.shu.edu.tw（兵役公假 houct@mail.shu.edu.tw；防疫公假先至衛保組網頁通報）
+      - name: 社團活動
+        keywords: [社團, 社團活動, 海報張貼]
+        unit: 學務處課外組
+        contact: 分機 82070、82068；Email a101@mail.shu.edu.tw
+      - name: 職涯輔導
+        keywords: [職涯, 就業, 求職, 履歷]
+        unit: 學務處生涯組
+        contact: 分機 82067；Email jpsc@mail.shu.edu.tw
+      - name: 心靈輔導
+        keywords: [諮商, 心理, 情緒, 身心障礙, 身障]
+        unit: 學務處諮商中心
+        contact: 分機 82082；Email counsel@mail.shu.edu.tw
+      - name: 原住民服務
+        keywords: [原住民]
+        unit: 學務處原資中心
+        contact: 分機 84221、84220；Email isrc@mail.shu.edu.tw
+      - name: 衛保與健康服務
+        keywords: [受傷, 傷病, 保險, 健康, 傳染病, 餐飲衛生]
+        unit: 學務處衛保組
+        contact: 分機 82079、82078；Email a104@mail.shu.edu.tw
+      - name: 學生權益
+        keywords: [申訴, 霸凌, 詐騙]
+        unit: 學務處
+        contact: 反詐騙、反霸凌專線 (02)2236-5243；Email strights@mail.shu.edu.tw；紙本申訴分機 83086
+      - name: 失物招領
+        keywords: [失物, 遺失, 撿到]
+        unit: 學務處生輔組
+        contact: 分機 82080；Email life@mail.shu.edu.tw
+
   總務:
     unit: 總務處
-    scope: 繳費、場地、設備報修
-    contact: TODO
+    scope: 停車、門禁保全、空調消防與水電設備報修、宿舍設施報修、學位服借用、註冊費繳費、冷氣卡儲值、特約廠商；學生餐廳與場地借用未列於官方業務聯絡窗口，先由總機轉接
+    contact: 總機 (02)2236-8225（請說明要找總務處哪一項業務）
+    windows:
+      - name: 冷氣卡儲值
+        keywords: [冷氣卡, 儲值, 加值]
+        unit: 總務處出納組
+        contact: 分機 82128；Email tinak@mail.shu.edu.tw
+      - name: 註冊費繳費
+        keywords: [註冊費, 繳費單, 逾期未繳, 補繳]
+        unit: 總務處出納組
+        contact: 分機 82127；Email CWS@mail.shu.edu.tw（開學 2 週內至山洞口列印逾期補註冊繳費單）
+      - name: 停車業務
+        keywords: [停車, 車位, 機車, 汽車, 車牌]
+        unit: 總務處環境安全組
+        contact: 分機 82115；Email hanalin@mail.shu.edu.tw
+      - name: 門禁保全
+        keywords: [門禁, 保全]
+        unit: 總務處環境安全組
+        contact: 分機 82115；Email hanalin@mail.shu.edu.tw
+      - name: 空調及消防設施
+        keywords: [冷氣, 空調, 消防]
+        unit: 總務處環境事務整備組
+        contact: 分機 82106；Email albert19@mail.shu.edu.tw
+      - name: 水電土木及宿舍設施
+        keywords: [停電, 停水, 漏水, 照明, 燈, 門鎖, 磁磚, 報修, 故障, 損壞]
+        unit: 總務處環境事務整備組
+        contact: 分機 82116；Email zhan@mail.shu.edu.tw
+      - name: 學位服借用
+        keywords: [學位服]
+        unit: 總務處保管組
+        contact: 分機 82122；Email cfcheng@mail.shu.edu.tw
+      - name: 特約廠商優惠
+        keywords: [特約, 優惠, 折扣]
+        unit: 總務處營繕採購組
+        contact: 分機 82108；Email af88126@mail.shu.edu.tw
+
+  國際兩岸:
+    unit: 國際暨兩岸事務處
+    scope: 僑生、外國學生、港澳生、陸生、入臺證與居留證、出國交換、境外交換獎學金、姊妹校交流
+    contact: 總機 (02)2236-8225；國際事務中心 分機 63572
+    windows:
+      - name: 入臺證與居留證
+        keywords: [入臺證, 入台證, 居留證, 工作證]
+        unit: 兩岸事務中心
+        contact: 分機 63831；Email evan@mail.shu.edu.tw
+      - name: 港澳生與陸生
+        keywords: [港澳, 陸生, 大陸]
+        unit: 兩岸事務中心
+        contact: 分機 63832；Email lyndon@mail.shu.edu.tw
+      - name: 出國交換與姊妹校
+        keywords: [交換, 姊妹校, 海外研修]
+        unit: 國際事務中心
+        contact: 分機 63573；Email jilinwu@mail.shu.edu.tw（赴陸港澳交換請洽兩岸事務中心 分機 63832）
+      - name: 僑生與外國學生
+        keywords: [僑生, 外國學生, 外籍, 留臺, 留台]
+        unit: 國際事務中心
+        contact: 分機 63572；Email boxuan@mail.shu.edu.tw
+
   綜合服務:
     unit: 學校總機轉接
-    scope: 無法分類的問題
-    contact: TODO
+    scope: 無法分類的問題；校外實習、推廣教育等研發處業務
+    contact: 總機 (02)2236-8225；緊急事件請撥 24 小時校安專線 (02)2236-7935
+    windows:
+      - name: 校外實習與推廣教育
+        keywords: [校外實習, 實習, 推廣教育]
+        unit: 研發處產學合作暨推廣教育中心
+        contact: Email icee@mail.shu.edu.tw；總機 (02)2236-8225 轉 82163

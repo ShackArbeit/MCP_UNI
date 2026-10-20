@@ -1,43 +1,367 @@
 # 學分門檻規則：數字判斷一律交給 core/rules.py 計算，不讓 LLM 自己比大小。
-# 新增規則時，threshold 必須能在 source 所指的條文中找到；人工核對原文後才能設 verified: true。
-# operator 可用：>=、<=、>、<、==
+#
+# 欄位：
+#   rule_id      規則代號（不可重複）
+#   category     分類，list_credit_rules 依此分組顯示
+#   description  門檻內容，並寫明「適用對象」與「不適用的例外」，讓 LLM 選對規則
+#   input        呼叫 check_credit_rule 時 value 要填什麼（每學期？累計？分數？）
+#   operator     >=、<=、>、<、==（學生的數字 <operator> threshold 才算通過）
+#   threshold    門檻數字，必須能在 source 所指的條文中找到
+#   derivation   （選填）門檻是條文數字相加而來時寫算式，例如 "22 + 4"；每個數字都要在條文中找得到
+#   unit         單位（學分、分、學期、門）
+#   source       出處：「辦法名稱 條號」，要和 kb/chunks.json 的 id 對得上
+#   verified     核對 PDF 原文（數字、比較方向、適用對象）後才能設 true，核對紀錄見 docs/規則核對表.md；
+#                false 時回答會附「此規則尚未經人工確認」。新增或修改規則時一律先設 false
+#
+# 一條規則只管一個門檻、一種對象。條文沒寫清楚的組合（例如法律系又是輔系生）不要自己推算，
+# 讓 LLM 走 route_case。
 
+# ---------- 每學期修課學分（學士班一般學生） ----------
 - rule_id: semester_min_credits_y1_3
-  description: 學士班第一至三學年每學期最低修習學分（一般學生；低於規定者應令休學）
+  category: 每學期修課學分（學士班）
+  description: 學士班（日間學制大學部、進修學士班）一至三年級每學期最低修習學分（一般學生；加退選截止一週內仍低於規定者應令休學，此項自 115 學年度施行，見選課辦法第十四條；停修後剩餘學分也不得低於此數，見選課辦法第七條）
+  input: 本學期所選（或停修後剩餘）的學分總數
   operator: ">="
   threshold: 16
   unit: 學分
   source: 選課辦法 第三條
   verified: true
 
-- rule_id: semester_max_credits
-  description: 學士班每學期修課學分上限（一般學生；法律系 25 學分、輔系生加修 4 學分、雙主修或前學期平均 80 分以上加修 6 學分等例外不適用本規則）
-  operator: "<="
-  threshold: 22
-  unit: 學分
-  source: 選課辦法 第三條
-  verified: true
-
-- rule_id: semester_max_credits_military
-  description: 專案役男每學期最高修習學分（專案役男擬超修者不在此限）
-  operator: "<="
-  threshold: 25
-  unit: 學分
-  source: 專案服役彈性修業辦法 第四點
-  verified: true
-
 - rule_id: semester_min_credits_y4
-  description: 學士班第四學年每學期最低修習學分（一般學生；低於規定者應令休學）
+  category: 每學期修課學分（學士班）
+  description: 學士班（日間學制大學部、進修學士班）四年級每學期最低修習學分（一般學生；加退選截止一週內仍低於規定者應令休學，此項自 115 學年度施行，見選課辦法第十四條；停修後剩餘學分也不得低於此數，見選課辦法第七條）
+  input: 本學期所選（或停修後剩餘）的學分總數
   operator: ">="
   threshold: 8
   unit: 學分
   source: 選課辦法 第三條
   verified: true
 
+- rule_id: semester_max_credits
+  category: 每學期修課學分（學士班）
+  description: 學士班每學期修課學分上限（一般學生，不是法律系、輔系生、雙主修或前學期平均 80 分以上者；這些身分請改用 semester_max_credits_law／_minor／_double_major_or_honors）
+  input: 本學期所選的學分總數
+  operator: "<="
+  threshold: 22
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: semester_max_credits_law
+  category: 每學期修課學分（學士班）
+  description: 法律系學生每學期修課學分上限（法律系又是輔系生／雙主修／成績優異者，條文未寫明是否可再加修，請改走 route_case）
+  input: 本學期所選的學分總數
+  operator: "<="
+  threshold: 25
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: semester_max_credits_minor
+  category: 每學期修課學分（學士班）
+  description: 輔系生每學期修課學分上限（一般上限 22 學分＋額外加修 4 學分；不適用法律系）
+  input: 本學期所選的學分總數（含輔系課程）
+  operator: "<="
+  threshold: 26
+  derivation: "22 + 4"
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: semester_max_credits_double_major_or_honors
+  category: 每學期修課學分（學士班）
+  description: 雙主修學生、或前學期學業成績總平均 80 分以上學生的每學期修課學分上限（條文「雙主修與前學期學業成績總平均八十分以上之學生」解讀為兩種學生各自適用；一般上限 22 學分＋額外加修 6 學分；不適用法律系；是否符合成績條件請先用 honors_extra_credits_gpa_min 判斷）
+  input: 本學期所選的學分總數
+  operator: "<="
+  threshold: 28
+  derivation: "22 + 6"
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: honors_extra_credits_gpa_min
+  category: 每學期修課學分（學士班）
+  description: 可額外加修 6 學分的成績條件：前學期學業成績總平均 80 分以上
+  input: 前學期學業成績總平均（分數）
+  operator: ">="
+  threshold: 80
+  unit: 分
+  source: 選課辦法 第三條
+  verified: true
+
+- rule_id: y4_graduate_courses_max
+  category: 每學期修課學分（學士班）
+  description: 學士班及進修學士班四年級學生，經授課教師及開課系所主管核可後，可修習的碩士班課程數上限（在職專班課程除外）
+  input: 想修的碩士班課程門數（條文只寫「得修習碩士班二門課程」，未寫明是每學期或在學期間累計，回答時要說明這點）
+  operator: "<="
+  threshold: 2
+  unit: 門
+  source: 選課辦法 第八條
+  verified: true
+
+# ---------- 每學期修課學分（研究生） ----------
+- rule_id: grad_semester_max_credits
+  category: 每學期修課學分（研究生）
+  description: 碩士班、碩士在職專班每學期修課學分上限（補修大學部課程不計入；經系所主管核可可再加修一門課程；各系所可自訂更低上限）
+  input: 本學期所選的學分總數（不含補修大學部課程）
+  operator: "<="
+  threshold: 12
+  unit: 學分
+  source: 選課辦法 第三條
+  verified: true
+
+# ---------- 專案役男 ----------
+- rule_id: semester_min_credits_military_y1_3
+  category: 專案役男
+  description: 專案役男第一至三學年每學期最低修習學分
+  input: 本學期所選的學分總數
+  operator: ">="
+  threshold: 16
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: semester_min_credits_military_y4
+  category: 專案役男
+  description: 專案役男第四學年每學期最低修習學分
+  input: 本學期所選的學分總數
+  operator: ">="
+  threshold: 8
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: semester_max_credits_military
+  category: 專案役男
+  description: 專案役男每學期最高修習學分（專案役男擬超修者不在此限）
+  input: 本學期所選的學分總數
+  operator: "<="
+  threshold: 25
+  unit: 學分
+  source: 專案服役彈性修業辦法 第四點
+  verified: true
+
+- rule_id: military_summer_max_credits
+  category: 專案役男
+  description: 專案役男暑期修課學分上限（原則；課程衝堂等特殊情況經學系主任初審及教務處複審核可者不在此限）
+  input: 暑期要修的學分總數
+  operator: "<="
+  threshold: 9
+  unit: 學分
+  source: 專案服役彈性修業辦法 第八點
+  verified: true
+
+- rule_id: military_intercollegiate_max_credits
+  category: 專案役男
+  description: 專案役男校際選課學分上限（原則；課程衝堂等特殊情況經學系主任初審及教務處複審核可者不在此限）
+  input: 校際選課的學分總數
+  operator: "<="
+  threshold: 8
+  unit: 學分
+  source: 專案服役彈性修業辦法 第八點
+  verified: true
+
+# ---------- 軍訓、體育 ----------
 - rule_id: military_training_max_credits
-  description: 在校修業期間軍訓至多採計學分
+  category: 軍訓、體育
+  description: 在校修業期間軍訓至多採計學分（每學期軍訓計 1 學分）
+  input: 在校期間累計修過的軍訓學分
   operator: "<="
   threshold: 2
   unit: 學分
   source: 選課辦法 第十條
+  verified: true
+
+- rule_id: officer_exam_military_training_semesters
+  category: 軍訓、體育
+  description: 報考預官預士須具備的軍訓合格學期數（另須平均 70 分以上，見 officer_exam_military_training_avg_score）
+  input: 軍訓合格的學期數
+  operator: ">="
+  threshold: 4
+  unit: 學期
+  source: 選課辦法 第十條
+  verified: true
+
+- rule_id: officer_exam_military_training_avg_score
+  category: 軍訓、體育
+  description: 報考預官預士須達到的軍訓平均成績（另須四學期軍訓合格，見 officer_exam_military_training_semesters）
+  input: 軍訓成績平均（分數）
+  operator: ">="
+  threshold: 70
+  unit: 分
+  source: 選課辦法 第十條
+  verified: true
+
+- rule_id: pe_elective_max_credits_before_109
+  category: 軍訓、體育
+  description: 日間學制學士班 109 學年度以前入學、或進修學士班 108 學年度（含）以前入學學生，有學分的體育興趣選修課程最多採計為畢業學分數
+  input: 累計修過、有學分的體育興趣選修學分
+  operator: "<="
+  threshold: 2
+  unit: 學分
+  source: 選課辦法 第十一條
+  verified: true
+
+- rule_id: pe_elective_max_credits_from_110
+  category: 軍訓、體育
+  description: 日間學制學士班 110 學年度起入學、或進修學士班 109 學年度起入學學生，有學分的體育興趣選修課程最多採計為畢業學分數
+  input: 累計修過、有學分的體育興趣選修學分
+  operator: "<="
+  threshold: 4
+  unit: 學分
+  source: 選課辦法 第十一條
+  verified: true
+
+# ---------- 輔系、雙主修 ----------
+- rule_id: minor_min_credits
+  category: 輔系、雙主修
+  description: 取得輔系資格至少應修畢的輔系專業（門）科目學分（在本學系最低畢業學分數以外加修）
+  input: 已修畢的輔系專業科目學分
+  operator: ">="
+  threshold: 20
+  unit: 學分
+  source: 修讀輔系辦法 第四條
+  verified: true
+
+- rule_id: double_major_min_credits
+  category: 輔系、雙主修
+  description: 取得雙主修資格至少應修畢的另一主修學系（學程）專業（門）科目學分（在本學系最低畢業學分數以外加修）
+  input: 已修畢的另一主修專業科目學分
+  operator: ">="
+  threshold: 40
+  unit: 學分
+  source: 雙主修辦法 第四條
+  verified: true
+
+# ---------- 自主學習 ----------
+- rule_id: self_learning_a_max_credits
+  category: 自主學習
+  description: 甲類自主學習學分經審核通過列為畢業學分的上限
+  input: 累計申請認證的甲類自主學習學分
+  operator: "<="
+  threshold: 6
+  unit: 學分
+  source: 世新大學自主學習學分實施辦法 第五條
+  verified: true
+
+- rule_id: self_learning_b_max_credits
+  category: 自主學習
+  description: 乙類自主微學課程學分經審核通過列為通識學分的上限
+  input: 累計申請認證的乙類自主微學學分
+  operator: "<="
+  threshold: 4
+  unit: 學分
+  source: 世新大學自主學習學分實施辦法 第五條
+  verified: true
+
+# ---------- 抵免學分 ----------
+- rule_id: transfer_credit_max_y2_1
+  category: 抵免學分
+  description: 大學部轉學生轉入二年級上學期，抵免學分上限（本校肄業之退學生不受此限）
+  input: 想抵免的學分總數
+  operator: "<="
+  threshold: 40
+  unit: 學分
+  source: 抵免學分辦法 第四條
+  verified: true
+
+- rule_id: transfer_credit_max_y2_2
+  category: 抵免學分
+  description: 大學部轉學生轉入二年級下學期，抵免學分上限（本校肄業之退學生不受此限）
+  input: 想抵免的學分總數
+  operator: "<="
+  threshold: 60
+  unit: 學分
+  source: 抵免學分辦法 第四條
+  verified: true
+
+- rule_id: transfer_credit_max_y3_1
+  category: 抵免學分
+  description: 大學部轉學生轉入三年級上學期，抵免學分上限（本校肄業之退學生不受此限）
+  input: 想抵免的學分總數
+  operator: "<="
+  threshold: 80
+  unit: 學分
+  source: 抵免學分辦法 第四條
+  verified: true
+
+- rule_id: transfer_credit_max_y3_2
+  category: 抵免學分
+  description: 大學部轉學生轉入三年級下學期，抵免學分上限（本校肄業之退學生不受此限）
+  input: 想抵免的學分總數
+  operator: "<="
+  threshold: 100
+  unit: 學分
+  source: 抵免學分辦法 第四條
+  verified: true
+
+- rule_id: grad_inservice_external_credit_max
+  category: 抵免學分
+  description: 碩士在職專班（含學位學程碩士在職專班）於外校修習課程的抵免學分上限（本校肄業之退學生不受此限）
+  input: 想抵免的外校學分總數
+  operator: "<="
+  threshold: 6
+  unit: 學分
+  source: 抵免學分辦法 第四條
+  verified: true
+
+- rule_id: grad_course_credit_waiver_min_score
+  category: 抵免學分
+  description: 修讀學、碩士學位期間修習碩、博士班課程，要申請抵免須達到的成績（且學分未列入原就讀系所最低畢業學分數內、持有證明）
+  input: 該門碩、博士班課程的成績（分數）
+  operator: ">="
+  threshold: 70
+  unit: 分
+  source: 抵免學分辦法 第一條
+  verified: true
+
+# ---------- 提高編級（抵免後重新編入年級） ----------
+- rule_id: advance_to_y2_1_min_credits
+  category: 提高編級
+  description: 上學期入學的大學部學生，抵免學分達此數以上得編入二年級上學期（大學肄業之退學生最高編入退學時的年級）
+  input: 抵免的學分總數
+  operator: ">="
+  threshold: 36
+  unit: 學分
+  source: 抵免學分辦法 第五條
+  verified: true
+
+- rule_id: advance_to_y2_2_min_credits
+  category: 提高編級
+  description: 下學期入學的大學部學生，抵免學分達此數以上得編入二年級下學期（大學肄業之退學生最高編入退學時的年級）
+  input: 抵免的學分總數
+  operator: ">="
+  threshold: 54
+  unit: 學分
+  source: 抵免學分辦法 第五條
+  verified: true
+
+- rule_id: advance_to_y3_1_min_credits
+  category: 提高編級
+  description: 上學期入學的大學部學生，抵免學分達此數以上得編入三年級上學期（專科學校畢業生最高編入三年級；大學肄業之退學生最高編入退學時的年級）
+  input: 抵免的學分總數
+  operator: ">="
+  threshold: 72
+  unit: 學分
+  source: 抵免學分辦法 第五條
+  verified: true
+
+- rule_id: advance_to_y3_2_min_credits
+  category: 提高編級
+  description: 下學期入學的大學部學生，抵免學分達此數以上得編入三年級下學期（專科學校畢業生最高編入三年級；大學肄業之退學生最高編入退學時的年級）
+  input: 抵免的學分總數
+  operator: ">="
+  threshold: 90
+  unit: 學分
+  source: 抵免學分辦法 第五條
+  verified: true
+
+- rule_id: advance_to_y4_1_min_credits
+  category: 提高編級
+  description: 上學期入學的大學部學生，抵免學分達此數以上得編入四年級上學期（專科學校畢業生不適用，最高編入三年級；大學肄業之退學生最高編入退學時的年級）
+  input: 抵免的學分總數
+  operator: ">="
+  threshold: 108
+  unit: 學分
+  source: 抵免學分辦法 第五條
   verified: true

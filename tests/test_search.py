@@ -88,3 +88,17 @@ def test_out_of_scope_questions_return_empty():
 @pytest.mark.parametrize("q", ["社團怎麼申請", "宿舍退費"])
 def test_two_word_query_with_common_word(q):
     assert search_regulations(q) == []
+
+
+@pytest.mark.parametrize("q, expected", [
+    ("通識", "選課辦法-第四條"),
+    ("超修", "專案服役彈性修業辦法-第四點"),
+    ("驗退", "專案服役彈性修業辦法-第十點"),
+    ("預士", "選課辦法-第十條"),
+    ("編級", "抵免學分辦法-第五條"),
+    ("先修", "選課辦法-第九條"),
+])
+def test_single_keyword_query(q, expected):
+    # 這些詞若被 jieba 切成單字，query_terms 會是空的而直接查無；user_dict.txt 要讓它們保持完整
+    assert query_terms(q) == [(q,)]
+    assert expected in ids(search_regulations(q))

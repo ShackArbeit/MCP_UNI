@@ -5,6 +5,7 @@ import pytest
 
 from core import db
 from core.logging_db import log_interaction
+from core import routing
 from core.routing import route_case
 
 
@@ -27,13 +28,61 @@ def _rows(path, sql):
 def test_route_known_category(temp_db):
     r = route_case("教務", "想申請超修學分")
     assert r["case_no"] == "A0001"
-    assert r["unit"] == "教務處註冊課務組"
+    assert r["window"] == "課程與選課"
+    assert r["unit"] == "教務處課務窗口"
+    assert "curr001@mail.shu.edu.tw" in r["contact"]
     assert "停修" in r["scope"]
-    assert set(r) == {"case_no", "unit", "scope", "contact", "next_step"}
-    assert "A0001" in r["next_step"]
+    assert set(r) == {"case_no", "category", "window", "unit", "scope", "contact", "next_step"}
+    assert "A0001" in r["next_step"] and r["contact"] in r["next_step"]
     assert _rows(temp_db, "SELECT case_no, category, unit, status FROM cases") == [
-        ("A0001", "教務", "教務處註冊課務組", "open")
+        ("A0001", "教務", "教務處課務窗口", "open")
     ]
+
+
+@pytest.mark.parametrize("category, summary, window, contact_part", [
+    ("學務", "學生詢問宿舍什麼時候可以申請", "宿舍服務", "82076"),
+    ("學務", "清寒獎學金要怎麼申請", "獎助學金", "82080"),
+    ("學務", "想辦理兵役緩徵", "學生兵役", "houct@"),
+    ("總務", "機車停車證要去哪裡辦", "停車業務", "82115"),
+    ("總務", "宿舍冷氣卡要怎麼儲值", "冷氣卡儲值", "82128"),   # 要排在「空調及消防設施」前面
+    ("總務", "教室冷氣壞了", "空調及消防設施", "82106"),
+    ("教務", "專案服役要怎麼申請", "專案服役", "82044"),
+    ("國際兩岸", "港澳生居留證到期", "入臺證與居留證", "63831"),
+])
+def test_window_matching(category, summary, window, contact_part):
+    r = route_case(category, summary)
+    assert r["window"] == window
+    assert contact_part in r["contact"]
+
+
+def test_no_window_uses_category_default():
+    r = route_case("總務", "學餐晚上開到幾點")
+    assert r["window"] is None
+    assert r["unit"] == "總務處"
+    assert "(02)2236-8225" in r["contact"]
+
+
+def test_next_step_does_not_claim_forwarding():
+    # 分流單不會自動送到承辦單位，不能讓學生以為有人會主動聯絡
+    r = route_case("學務", "宿舍申請")
+    assert "請聯絡" in r["next_step"]
+    assert "將由" not in r["next_step"]
+
+
+def test_routing_yaml_has_no_todo():
+    for name in routing.list_categories():
+        info = routing._CATEGORIES[name]
+        assert "TODO" not in info["contact"], name
+        for w in info.get("windows") or []:
+            assert "TODO" not in w["contact"], (name, w["name"])
+
+
+def test_todo_contact_rejected(tmp_path, monkeypatch):
+    path = tmp_path / "routing.yaml"
+    path.write_text("categories:\n  綜合服務:\n    unit: 總機\n    scope: 其他\n    contact: TODO\n", encoding="utf-8")
+    monkeypatch.setattr(routing, "ROUTING_PATH", path)
+    with pytest.raises(ValueError, match="TODO"):
+        routing._load_categories()
 
 
 def test_unknown_category_falls_back(temp_db):

@@ -45,6 +45,9 @@ _ALNUM_RUN = r"[A-Za-z0-9]+"
 _TOKEN_RE = re.compile(f"{_CJK_RUN}|{_ALNUM_RUN}")
 
 
+# 【tokenize】把文字切成 BM25 排序用的 token（字元 bigram）。
+# 主要功能：建索引時切條文、查詢時切問題，兩邊用同一種切法，BM25 才能比對分數。
+# 用 bigram 而不用 jieba 排序，是因為 bigram 不會切錯，條文裡的詞一定比對得到。
 def tokenize(text: str) -> list[str]:
     """中文切字元 bigram（「停修課程」→ 停修、修課、課程），英數字串整串當一個 token。
 
@@ -74,13 +77,11 @@ _JIEBA = jieba.Tokenizer(dictionary=str(JIEBA_DICT_PATH))
 _JIEBA.load_userdict(str(USER_DICT_PATH))
 
 
+# 【query_terms】把學生的問題斷成「詞」，並換上規章用語的同義詞。
+# 主要功能：產生計算覆蓋率用的詞清單，用來判斷條文是否真的和問題相關。
+# 用 jieba 斷詞，可以避免 bigram 切出「費會」「會退」這類跨詞雜訊拉低覆蓋率；
+# 同義詞讓口語（大二、當兵）也能對到條文用語（第二學年、服役）。
 def query_terms(query: str) -> list[tuple[str, ...]]:
-    """把查詢斷成計算覆蓋率用的詞，每個詞附上同義詞，例如「我已經大二了還能轉系嗎」→
-    [("已經",), ("二年級", "第二學年"), ("轉系",)]。
-
-    疑問詞先拿掉；單字詞（「我」「了」「課」）與標點不算，重複的詞只算一次。
-    關掉 jieba 的 HMM：它會把繁體未登錄詞黏成「停修後學費會」這種長串。
-    """
     terms: list[tuple[str, ...]] = []
     for w in _JIEBA.lcut(_STOPWORD_RE.sub(" ", query), HMM=False):
         is_word = (len(w) >= 2 and _CJK_CHAR_RE.match(w)) or (w.isascii() and w.isalnum())
@@ -92,6 +93,9 @@ def query_terms(query: str) -> list[tuple[str, ...]]:
     return terms
 
 
+# 【_load_chunks】讀取 kb/chunks.json 的所有條文（模組載入時執行一次）。
+# 主要功能：提供檢索的資料來源；檔案不存在或內容是空的就直接報錯，
+# 並提示先執行 scripts/ingest.py，避免 server 在沒有知識庫的情況下啟動。
 def _load_chunks() -> list[dict]:
     if not CHUNKS_PATH.exists():
         raise FileNotFoundError(f"找不到 {CHUNKS_PATH}，請先執行 python scripts/ingest.py")
@@ -107,24 +111,21 @@ _BM25 = BM25Okapi(_CORPUS)
 _FULL_TEXTS = [c["source"] + c["article"] + c["text"] for c in _CHUNKS]
 
 
+# 【coverage】計算某條條文包含了幾成的查詢詞（0～1），同義詞任一個出現就算命中。
+# 主要功能：當作第二道門檻，擋下「分數不低、其實不相關」的條文。
+# 例如「學生宿舍什麼時候可以申請」只命中「申請」，覆蓋率太低，就不會回傳。
 def coverage(terms: list[tuple[str, ...]], chunk_index: int) -> float:
-    """條文包含了幾成的查詢詞（同義詞任一個出現就算）。"""
     text = _FULL_TEXTS[chunk_index]
     return sum(any(a in text for a in alts) for alts in terms) / len(terms)
 
 
+# 【search_regulations】對外的檢索入口：輸入學生的問題，回傳最相關的條文與出處。
+# 主要功能：串起整個檢索流程——
+#   1. query_terms 斷詞並加上同義詞
+#   2. tokenize 後交給 BM25 算每條條文的分數，由高到低排序
+#   3. 依序檢查：分數 ≥ MIN_SCORE，且 coverage ≥ MIN_COVERAGE 才收進結果
+#   4. 收滿 top_k 筆就停止；一筆都沒有就回傳空 list（server.py 會改叫 route_case 分流）
 def search_regulations(query: str, top_k: int = 3) -> list[dict]:
-    """用關鍵字搜尋世新大學規章條文，回傳最相關的條文段落與出處。
-
-    Args:
-        query: 查詢文字，例如「停修」「轉系 申請期限」。
-        top_k: 最多回傳幾筆，預設 3。
-
-    Returns:
-        依 score 由高到低排序的 list，每筆含 id、source（辦法名稱）、article（條號）、
-        text（條文全文）、score（BM25 分數）。分數低於 MIN_SCORE、或條文涵蓋的查詢詞
-        少於 MIN_COVERAGE 的不回傳；找不到相關條文、或查詢裡沒有任何兩字以上的詞時回傳空 list。
-    """
     terms = query_terms(query)
     if not terms or top_k <= 0:
         return []
