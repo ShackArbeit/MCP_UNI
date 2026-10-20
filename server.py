@@ -28,8 +28,15 @@ logger = logging.getLogger("shu-campus-assistant")
 db.get_conn().close()
 logger.info("logs.db：%s", db.DB_PATH)
 
+# 連線時送給 Host 的說明：沒有 Project 指示的一般對話，也提示 Claude 校務問題要先查工具
+SERVER_INSTRUCTIONS = """世新大學校務諮詢助理。使用者問到大學的選課、加退選、停修、退費、學分上下限、
+抵免、轉系、輔系、雙主修、自主學習、軍訓、體育、專案服役等校務問題時，即使沒有提到「世新」，
+也不要用一般知識回答，一律先呼叫 search_regulations 查條文並附出處；學分是否達標用 check_credit_rule 判斷；
+查不到或不屬於教務規章的問題（宿舍、停車、獎學金等）用 route_case 轉給承辦單位；回答完呼叫 log_interaction。"""
+
 # dependencies 讓 `mcp dev` / `mcp install` 建臨時環境時也會裝上這些套件
-mcp = FastMCP("shu-campus-assistant", dependencies=["rank_bm25", "pyyaml", "jieba"])
+mcp = FastMCP("shu-campus-assistant", instructions=SERVER_INSTRUCTIONS,
+              dependencies=["rank_bm25", "pyyaml", "jieba"])
 
 NOT_FOUND_MESSAGE = "知識庫中沒有找到相關規定。請呼叫 route_case 轉給承辦單位。"
 # mask_pii 產生的 [STUDENT_ID] 等標記，檢索前拿掉，避免 student、id 被當成查詢詞
@@ -39,6 +46,9 @@ _PII_TAG_RE = re.compile(r"\[(?:EMAIL|ID|PHONE|STUDENT_ID)\]")
 @mcp.tool()
 def search_regulations(query: str, top_k: int = 3) -> str:
     """搜尋世新大學的教務規章條文，回傳條文全文與出處（辦法名稱＋條號）。
+
+    使用者問到大學的選課、學分、停修、抵免、轉系、輔系、雙主修等校務問題時，即使沒有提到「世新」，
+    也必須先呼叫本工具查條文，不可以直接用一般知識回答。
 
     知識庫目前收錄 7 份規章：選課辦法、抵免學分辦法、轉系辦法、修讀輔系辦法、
     雙主修辦法、自主學習學分實施辦法、專案服役彈性修業辦法。
